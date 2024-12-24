@@ -275,4 +275,7 @@ module Bag where
 
     foldrᴮ : ∀ {v} {V : Set v} → (V → V → V) → V → Bag V → V
     foldrᴮ f nil (tree tr) = foldr f nil tr
+
+    foldlᴮ : ∀ {v} {V : Set v} → (V → V → V) → V → Bag V → V
+    foldlᴮ f nil (tree tr) = foldl f nil tr
  
