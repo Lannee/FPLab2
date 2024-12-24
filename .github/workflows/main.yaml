@@ -2,12 +2,6 @@ name: basic
 on:
   push:
     branches: ['master']
-
-env:
-  PROJECT_DIR : lib
-  SUBDIRECTORIES : AVL
-
-
 jobs:
   prob19tests:
     name: Build
@@ -21,5 +15,5 @@ jobs:
           agda-stdlib-version: '2.0'
 
       - run: |
-          agda --compile-dir=./ --ghc-strict -c AVL/Height.agda --no-main
+          agda -c AVL.agda --no-main
         working-directory: lib
