@@ -241,11 +241,12 @@ private
 
 foldr : ∀ {l u h v} {V : Key → Set v} → (∀ {k} → V k → A → A) → A → Tree V l u h → A
 foldr _ z (leaf l<u) = z
-foldr f z (node x xv _ tl tr) = foldr f (f xv (foldr f z tr)) tl
+foldr f z (node x xv _ tl tr) = f xv (foldr f (foldr f z tl) tr)
 
-foldl : ∀ {l u h v} {V : Key → Set v} → (∀ {k} → A → V k → A) → A → Tree V l u h → A
+
+foldl : ∀ {l u h v} {V : Key → Set v} → (∀ {k} → V k → A → A) → A → Tree V l u h → A
 foldl _ z (leaf l<u) = z
-foldl f z (node x xv _ tl tr) = foldl f (f z xv) tl
+foldl f z (node x xv _ tl tr) = foldl f (foldl f (f xv z) tl) tr
 
 
 module Bag where
