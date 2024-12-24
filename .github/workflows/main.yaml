@@ -16,4 +16,4 @@ jobs:
 
       - run: |
           agda -c AVL.agda --no-main
-        working-directory: lib
+        working-directory: .
