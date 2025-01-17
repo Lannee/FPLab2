@@ -3,8 +3,8 @@ on:
   push:
     branches: ['master']
 jobs:
-  prob19tests:
-    name: Build
+  compile:
+    name: compile
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -18,4 +18,21 @@ jobs:
 
       - run: |
           agda -c AVL.agda --no-main
+        working-directory: .
+
+  unit_test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: wenkokke/setup-agda@v2
+        with:
+          agda-version: '2.7.0'
+          agda-stdlib-version: 'recommended'
+          agda-defaults: |
+            standard-library
+
+      - run: |
+          agda -c test.agda --no-main
         working-directory: .

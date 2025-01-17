@@ -1,7 +1,7 @@
 open import Relation.Binary
 open import Relation.Binary.PropositionalEquality
 open import Level using (Level; Lift; lift; _⊔_; lower)
-open import Data.Nat as ℕ using (ℕ; suc; zero; pred)
+open import Data.Nat as ℕ using (ℕ; suc; zero; pred; _+_)
 open import Data.Nat.Properties as ℕProps using (≤-refl)
 open import Data.Product
 open import Data.Unit
@@ -9,6 +9,8 @@ open import Data.Maybe
 open import Function
 open import Data.Bool
 open import Data.Empty
+import Data.List as List
+open import Agda.Builtin.Sigma
 
 open import AVL.Height
 
@@ -71,6 +73,17 @@ data Tree {v}
              (ku : Tree V [ k ] u rh) →
              Tree V l u (suc h)
 
+empty : ∀ {l u v} {V : Key → Set v}
+        → l [<] u 
+        → Tree V l u 0
+empty = leaf
+
+singleton : ∀ {l u v} {V : Key → Set v} (k : Key) 
+            → V k
+            → l < k < u 
+            → Tree V l u 1
+singleton k v (l<k , k<u) = node k v ∼0 (leaf l<k) (leaf k<u)
+
 _1?+〈_〉 : ∀ {ℓ} (T : ℕ → Set ℓ) → ℕ → Set ℓ
 T 1?+〈 n 〉 = ∃[ inc? ] T (if inc? then suc n else n)
 
@@ -115,31 +128,37 @@ rotˡ x xv d (node y yv ∼+ (node z zv bl c b) a) =
     0+ (node z zv ∼0 (node x xv (max∼ bl) d c) (node y yv (∼max bl) b a)) 
 
 
-insert : ∀ {l u h v} {V : Key → Set v} (k : Key) 
+insertWith : ∀ {l u h v} {V : Key → Set v} (k : Key) 
        → V k
        → (V k → V k → V k)
        → Tree V l u h
        → l < k < u
        → Tree V l u 1?+〈 h 〉
-insert v vc f (leaf l<u) (l , u) = 1+ (node v vc ∼0 (leaf l) (leaf u))
-insert v vc f (node k kc bl tl tr) prf with compare v k
-insert v vc f (node k kc bl tl tr) (l , _)
-    | tri< a _ _ with insert v vc f tl (l , a)
+insertWith v vc f (leaf l<u) (l , u) = 1+ (node v vc ∼0 (leaf l) (leaf u))
+insertWith v vc f (node k kc bl tl tr) prf with compare v k
+insertWith v vc f (node k kc bl tl tr) (l , _)
+    | tri< a _ _ with insertWith v vc f tl (l , a)
 ... | 0+ tl′ = 0+ (node k kc bl tl′ tr)
 ... | 1+ tl′ with bl
 ... | ∼+ = rotʳ k kc tl′ tr
 ... | ∼0 = 1+ (node k kc ∼+ tl′ tr)
 ... | ∼- = 0+ (node k kc ∼0 tl′ tr)
-insert v vc f (node k kc bl tl tr) _
+insertWith v vc f (node k kc bl tl tr) _
     | tri≈ _ refl _ = 0+ (node k (f vc kc) bl tl tr)
-insert v vc f (node k kc bl tl tr) (_ , u)
-    | tri> _ _ c with insert v vc f tr (c , u)
+insertWith v vc f (node k kc bl tl tr) (_ , u)
+    | tri> _ _ c with insertWith v vc f tr (c , u)
 ... | 0+ tr′ = 0+ (node k kc bl tl tr′)
 ... | 1+ tr′ with bl
 ... | ∼+ = 0+ (node k kc ∼0 tl tr′)
 ... | ∼0 = 1+ (node k kc ∼- tl tr′)
 ... | ∼- = rotˡ k kc tl tr′
 
+insert : ∀ {l u h v} {V : Key → Set v} (k : Key) 
+       → V k
+       → Tree V l u h
+       → l < k < u
+       → Tree V l u 1?+〈 h 〉
+insert v vc = insertWith v vc const
 
 lookup : (k : Key)
        → ∀ {l u s v} {V : Key → Set v}
@@ -234,22 +253,42 @@ mapᵗ f (leaf l<u) = leaf l<u
 mapᵗ f (node x xv b l r) = node x (f xv) b (mapᵗ f l) (mapᵗ f r)
 
 
-foldr : ∀ {l u h v} {V : Key → Set v} {A : Set v} → (∀ {k} → V k → A → A) → A → Tree V l u h → A
+foldr : ∀ {l u h v p} {V : Key → Set v} {A : Set p} → (∀ {k} → V k → A → A) → A → Tree V l u h → A
 foldr _ z (leaf l<u) = z
 foldr f z (node x xv _ tl tr) = f xv (foldr f (foldr f z tl) tr)
 
 
-foldl : ∀ {l u h v} {V : Key → Set v} {A : Set v} → (∀ {k} → V k → A → A) → A → Tree V l u h → A
+foldl : ∀ {l u h v p} {V : Key → Set v} {A : Set p} → (∀ {k} → V k → A → A) → A → Tree V l u h → A
 foldl _ z (leaf l<u) = z
 foldl f z (node x xv _ tl tr) = foldl f (foldl f (f xv z) tl) tr
 
+size : ∀ {l u h v} {V : Key → Set v}
+        → Tree V l u h
+        → ℕ
+size = foldl (λ _ n → suc n) 0
 
-module Bag where
+toList : ∀ {l u h v} {V : Key → Set v} 
+        → Tree V l u h
+        → List.List (Σ Key V) 
+toList (leaf _) = List.[]
+toList (node x xv _ l r) = (toList l) List.++ List.[ (x , xv) ] List.++ (toList r)
+
+
+module _ where
 
     data Bag {v} (V : Set v) : Set (k ⊔ v ⊔ r) where
         tree : ∀ {h}
                 → Tree (const V) ⌊⌋ ⌈⌉ h
                 → Bag V
+
+    emptyᴮ : ∀ {v} {V : Set v}
+        → Bag V
+    emptyᴮ = tree (empty (lift tt)) 
+
+    singletonᴮ : ∀ {v} {V : Set v} (k : Key) 
+            → V
+            → Bag V
+    singletonᴮ k v = tree (singleton k v (lift tt , lift tt))
 
     insertWithᴮ : ∀ {v} {V : Set v} (k : Key)
                  → V
@@ -257,7 +296,7 @@ module Bag where
                  → Bag V
                  → Bag V
     insertWithᴮ k v f (tree tr) = 
-        tree (proj₂ (insert k v f tr (lift tt , lift tt)))
+        tree (proj₂ (insertWith k v f tr (lift tt , lift tt)))
 
     insertᴮ : ∀ {v} {V : Set v} (k : Key) → V → Bag V → Bag V
     insertᴮ k v = insertWithᴮ k v const
@@ -278,4 +317,14 @@ module Bag where
 
     foldlᴮ : ∀ {v} {V : Set v} → (V → V → V) → V → Bag V → V
     foldlᴮ f nil (tree tr) = foldl f nil tr
- 
+    
+    sizeᴮ : ∀ {v} {V : Set v} 
+           → Bag V 
+           → ℕ
+    sizeᴮ (tree tr) = size tr
+    
+    toListᴮ : ∀ {v} {V : Set v} 
+           → Bag V 
+           → List.List V
+    toListᴮ (tree tr) = List.map (λ e → snd e ) $ toList tr
+  
